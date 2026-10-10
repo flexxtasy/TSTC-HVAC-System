@@ -1,0 +1,35 @@
+# --- Secrets & sensitive lab data (NEVER commit) ---
+# This is a public repo. Keep all real network details and credentials out.
+*.key
+*.pem
+*.env
+*password*
+*secret*
+*token*
+*cred*
+authkey*
+# Packet captures, scans, and attack evidence stay in private notes
+*.pcap
+*.pcapng
+*.cap
+scan*.txt
+spray*.txt
+*.hash
+wl*.txt
+private-notes/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+bac0env/
+env/
+
+# --- OS / editor ---
+.DS_Store
+*.swp
+*~
+.idea/
+.vscode/
