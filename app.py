@@ -154,7 +154,7 @@ def main():
         driver = SimDriver(start_temp=24.0, ambient=31.0)
     else:
         # TODO: swap in BacnetDriver for the .183 unit once green-lit:
-        #   driver = BacnetDriver('206.51.62.183', <device_id>, {...points...})
+        #   # driver = BacnetDriver('<CONTROLLER_IP>', <device_id>, {...points...})
         #   driver.connect()
         driver = SimDriver(start_temp=24.0, ambient=31.0)
         print("NOTE: no hardware driver configured — running simulation.")
