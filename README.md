@@ -1,105 +1,103 @@
 # TSTC-HVAC-System
 
-A Python control interface for a lab HVAC system, built as part of an authorized
-TSTC cyber-club project. The project has two halves: **break into a locked-down
-controller** as an authorized red-team exercise, then **build the BACnet control
-layer and software interface** for it.
+A BACnet control interface for a lab HVAC system — built as a collaborative
+TSTC cyber-club project. *Credit for the underlying HVAC controller belongs to
+[Ricardo "Rick" De Leon Jr.](https://www.linkedin.com/in/ricardo-de-leon-jr-225b5756) (see below).*
 
-This repository holds the **interface software and architecture** only. The
-offensive/defensive security work (recon, testing methodology, findings) is kept
-in private notes, not here — see [Scope & sanitization](#scope--sanitization).
+A protocol-agnostic control engine drives the unit through a swappable driver —
+a built-in simulator for development (**runs with no hardware**), and a BACnet
+driver for the live controller — behind a web or desktop UI.
 
-## Team & authorization
+## Credit
 
-- **Ramiro** and **Carlos** — TSTC cybersecurity students, building the software.
-- **Rick** — mentor (former TSTC student), who set up the target controller and is
-  coaching the pentest.
-- Work is performed on **lab equipment we are authorized to test**, with the
-  professor's and mentor's sign-off. Nothing here is run against systems outside
-  that authorized lab.
+The HVAC controller this project builds on was designed and built by
+**Ricardo "Rick" De Leon Jr.**
+([LinkedIn](https://www.linkedin.com/in/ricardo-de-leon-jr-225b5756)) — a TSTC
+cybersecurity student and SkillsUSA medalist. He wired the Raspberry Pi
+controller, its relay board and temperature sensor, and the BACnet stack, and
+set it up as a SkillsUSA pentest-practice lab. Our team (Ramiro and Carlos)
+built the control interface, dashboard, and integration work documented here on
+top of Rick's system, with his permission. Any credit for "the HVAC system"
+itself belongs to Rick first.
 
-## What it does
+## What this is
 
-A software interface to monitor and control a classroom HVAC unit:
+Software to monitor and control an HVAC unit (AC, fan, heater, temperature
+setpoint) over a clean, testable architecture:
 
-- Switch **AC / Fan / Heater** on and off.
-- Change the **trigger temperature (setpoint)**.
-- Display **current temperature** with running **min/max**.
-- **Log** readings and output states to CSV.
+- **`controller.py`** — protocol-agnostic control core: off/heat/cool/auto
+  modes, setpoint + deadband trigger logic (anti short-cycling), min/max
+  tracking, manual overrides, an in-memory event log, and CSV logging. Hardware
+  sits behind a **driver interface**:
+  - `SimDriver` — a simulated HVAC unit (room temp drifts toward ambient; AC
+    cools, heater warms, fan circulates) so the whole system runs with no
+    hardware.
+  - `BacnetDriver` — the swap-in point for a real BACnet unit (address, device
+    id, and a point map supplied as local config — never committed).
+- **`app.py`** — web UI (Python standard library only, no dependencies).
+- **`gui.py`** — Tkinter desktop UI on the same engine.
+
+## Run it (simulation — no hardware needed)
+
+​```bash
+# Web UI
+python3 app.py --sim          # then open http://localhost:8080
+
+# Desktop UI
+python3 gui.py
+​```
+
+Both drive the simulated unit end-to-end: thermostat logic, setpoint changes,
+AC/fan/heater, live readings, and CSV logging.
 
 ## Architecture
 
-One engine, two interchangeable UI "skins":
-
-```
-protocol layer  (SimDriver now; BacnetDriver later, via BAC0/BACpypes3)
-   -> control loop  (background thread, 2s poll, 10s log)
+​```
+driver layer   (SimDriver for dev, BacnetDriver for the live unit)
+   -> control loop   (deadband thermostat logic + manual overrides)
    -> CSV log + in-memory event feed
-   -> UI skin:  web (stdlib HTTP server)  OR  Tkinter desktop
-```
+   -> UI skin:  web (stdlib)  OR  Tkinter desktop
+​```
 
-Both UIs share the same `controller.py`, so the control logic is written once and
-reused. Hardware sits behind a small **Driver interface**, which is the single
-swap-in point when the project moves from simulation to a real controller.
+One engine, swappable UI skins and swappable driver — the same control logic
+runs against the simulator or a live BACnet device.
 
-### Components
+## Progress update — 2026-10-12: live control working
 
-- **`controller.py`** — core engine.
-  - `SimDriver` — a simulated HVAC unit (temperature drifts toward ambient; AC
-    cools, heater warms, fan adds circulation) so the UI can be developed and
-    demoed with no hardware attached.
-  - `BacnetDriver` — swap-in stub for the real unit. Takes an address, device id,
-    and a point map; reads/writes BACnet points via BAC0. **Inactive until the
-    hardware phase** — this is where real discovered point names will plug in.
-  - `HVACController` — the control loop. Setpoint ± **deadband** trigger logic
-    (AC fires above `setpoint + deadband`, heater below `setpoint − deadband`) to
-    prevent short-cycling; off/heat/cool/auto modes; manual overrides; setpoint
-    clamped to a safe range; min/max tracking; CSV logging.
-- **`app.py`** — web interface (Python standard library only; no JS build step).
-  Serves a dashboard and a small JSON status API, with form controls for the
-  switches, setpoint, and mode. Preferred for final deployment (the target is
-  headless).
-- **`gui.py`** — Tkinter desktop app over the same engine, for local use on a
-  workstation with a display.
-- **`hvac_log.csv`** — sample simulation log
-  (`timestamp, temp_c, setpoint_c, mode, ac, heater, fan`).
+The authorized security phase is complete, and the project moved to the build
+half — our software now drives the real HVAC unit over BACnet.
 
-> **Note:** the source files are added in a follow-up commit by the authors; this
-> README documents the design.
+- Studied the controller's original scripts, then consolidated several separate
+  programs into one clean single-file control engine (kept in private lab
+  notes — see the security-lab note below).
+- **Fixed 5 real bugs caused by BACnet library drift** (the reference code was
+  written against older BAC0 / bacpypes3 versions) — full writeup in
+  [`docs/bac0-integration-notes.md`](docs/bac0-integration-notes.md).
+- **Deployed and verified on real hardware** — exercised remote output control
+  over BACnet end-to-end, then released everything back to auto.
+- **Built a web dashboard** (Flask + BAC0): polls the unit every 2 s, with
+  AC / Fan / setpoint / trip-point controls and a °F display (BACnet stays °C
+  internally). *(The live dashboard talks to real lab addresses, so it's kept
+  in private notes, not here.)*
 
-## Running (simulation)
+### Roadmap
+- [x] Control interface + simulator (web + desktop)
+- [x] Authorized security phase complete
+- [x] BACnet integration working against the live unit
+- [~] Wire this `controller.py` interface to the live BACnet points
 
-```bash
-# Web UI
-python3 app.py --sim --port 8090      # then open http://localhost:8090
+## Security-lab note
 
-# Desktop UI
-python3 gui.py --sim
-```
+The underlying controller is a **SkillsUSA pentest-practice target** — a lab
+built to be assessed, not a production system. To keep it usable as a challenge
+for future students, this repository intentionally contains **no** lab
+specifics: no credentials, addresses, device internals, detection/deception
+details, or exploitation steps. That material is kept in private notes only.
+This repo is about the *engineering* — the control software and BACnet
+integration.
 
-No hardware or network access is required in simulation mode.
+## Sanitization
 
-## Roadmap
-
-- [x] Research reference BACnet/HVAC interfaces; extract a common architecture.
-- [x] Build and test the control interface in simulation (web + desktop).
-- [ ] **Security phase (authorized):** gain access to the lab controller.
-- [ ] Passive BACnet discovery; map real point names.
-- [ ] Implement `BacnetDriver` against the live unit.
-- [ ] Deploy the interface on the controller / lab network.
-- [ ] **Defensive write-up:** detection rules for the attack paths used
-      (e.g. BACnet write monitoring, SSH brute-force detection) — turning the
-      red-team work into a blue-team artifact.
-
-## Scope & sanitization
-
-This is a **public** repository. It must never contain real network details or
-secrets:
-
-- No real IPs, MAC addresses, or hostnames — use placeholders
-  (`<CONTROLLER_IP>`, `<LAB_SUBNET>`).
-- No credentials, keys, or tokens of any kind.
-- No raw packet captures, attack logs, or scan output from the lab network.
-
-All offensive and defensive security notes, target details, and evidence live in
-**private** notes outside this repo. See `.gitignore` for the blocked patterns.
+Public repository — never commit real IPs, hostnames, MACs, credentials, keys,
+or lab-challenge internals (point maps, device IDs, honeypot details). Real
+values live in private notes. See `.gitignore` for blocked patterns.
