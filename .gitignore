@@ -33,3 +33,7 @@ env/
 *~
 .idea/
 .vscode/
+# --- Private live-lab files: NEVER commit to this public repo ---
+master_code.py
+web_ui.py
+hvac_master_log.csv
