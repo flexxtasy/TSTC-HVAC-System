@@ -11,10 +11,8 @@ release it you write BACnet **NULL**. In this BAC0 build the write-string parser
 wants the literal lowercase token `null`; passing Python `None` raises
 `ValueError`.
 
-​```python
-# release priority 8 on a binary output
-await client._write(f"{addr} binaryOutput {inst} presentValue null - 8")
-​```
+    # release priority 8 on a binary output
+    await client._write(f"{addr} binaryOutput {inst} presentValue null - 8")
 
 ## 2. Object instances are 0-based
 
@@ -27,21 +25,17 @@ Off-by-one here silently targets the wrong object (or none).
 just the one you call it on. Call it per-object and you register duplicates —
 build every object first, then call it a single time.
 
-​```python
-ai = analog_input(name="Room_Temperature", ...)
-av = analog_value(name="Temperature_Setpoint", ...)
-bo = binary_output(name="AC_Output", ...)
-bo.add_objects_to_application(dev)   # registers ai, av, and bo together — once
-​```
+    ai = analog_input(name="Room_Temperature", ...)
+    av = analog_value(name="Temperature_Setpoint", ...)
+    bo = binary_output(name="AC_Output", ...)
+    bo.add_objects_to_application(dev)   # registers ai, av, and bo together — once
 
 ## 4. `write()` is fire-and-forget; await `_write()` when the result matters
 
 `write()` returns before the write is confirmed. When the value must have landed
 before the next step, use the awaited form (and read it back to confirm).
 
-​```python
-await client._write(f"{addr} analogValue {inst} presentValue 25.0")
-​```
+    await client._write(f"{addr} analogValue {inst} presentValue 25.0")
 
 ## 5. A written priority *holds* until you release it
 
@@ -50,10 +44,8 @@ until explicitly released. To fully return an object to its auto/relinquished
 state, clear **all 16** priority levels with NULL (see #1), not just the one you
 wrote.
 
-​```python
-for p in range(1, 17):
-    await client._write(f"{addr} binaryOutput {inst} presentValue null - {p}")
-​```
+    for p in range(1, 17):
+        await client._write(f"{addr} binaryOutput {inst} presentValue null - {p}")
 
 ## 6. On a switched LAN, unicast BACnet is invisible to a network tap
 
